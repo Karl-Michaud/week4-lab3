@@ -5,9 +5,12 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * An implementation of the Translator interface which reads in the translation
@@ -15,7 +18,9 @@ import org.json.JSONArray;
  */
 public class JSONTranslator implements Translator {
 
-    // TODO Task: pick appropriate instance variables for this class
+    private final JSONArray dataJsonArray;
+    private final List<String> allCountryCodes = new ArrayList<>();
+    private final Map<String, Map<String, String>> codeMap = new HashMap<>();
 
     /**
      * Constructs a JSONTranslator using data from the sample.json resources file.
@@ -31,15 +36,32 @@ public class JSONTranslator implements Translator {
      */
     public JSONTranslator(String filename) {
         // read the file to get the data to populate things...
+        final String alpha2 = "alpha2";
+        final String alpha3 = "alpha3";
+        final String id = "id";
         try {
 
             String jsonString = Files.readString(Paths.get(getClass().getClassLoader().getResource(filename).toURI()));
 
             JSONArray jsonArray = new JSONArray(jsonString);
+            this.dataJsonArray = jsonArray;
 
-            // TODO Task: use the data in the jsonArray to populate your instance variables
-            //            Note: this will likely be one of the most substantial pieces of code you write in this lab.
-
+            for (int i = 0; i < this.dataJsonArray.length(); i++) {
+                Map<String, String> languageToTranslation = new HashMap<>();
+                JSONObject lineObject = this.dataJsonArray.getJSONObject(i);
+                String countryCode = new String(lineObject.getString(alpha3));
+                if (!" ".equals(countryCode)) {
+                    allCountryCodes.add(countryCode);
+                }
+                for (String languageCode : lineObject.keySet()) {
+                    if (!languageCode.equals(alpha3) && !languageCode.equals(alpha2) && !languageCode.equals(id)) {
+                        String notAliasCode = new String(languageCode);
+                        String notAliasTranslation = new String(lineObject.getString(languageCode));
+                        languageToTranslation.put(notAliasCode, notAliasTranslation);
+                    }
+                }
+                codeMap.put(countryCode, languageToTranslation);
+            }
         }
         catch (IOException | URISyntaxException ex) {
             throw new RuntimeException(ex);
@@ -48,21 +70,31 @@ public class JSONTranslator implements Translator {
 
     @Override
     public List<String> getCountryLanguages(String country) {
-        // TODO Task: return an appropriate list of language codes,
-        //            but make sure there is no aliasing to a mutable object
+        String refactoredCountry = country.toLowerCase();
+        if (codeMap.containsKey(refactoredCountry)) {
+            List<String> languages = new ArrayList<>();
+            for (String lang : codeMap.get(refactoredCountry).keySet()) {
+                languages.add(lang);
+            }
+            return languages;
+        }
         return new ArrayList<>();
     }
 
     @Override
     public List<String> getCountries() {
-        // TODO Task: return an appropriate list of country codes,
-        //            but make sure there is no aliasing to a mutable object
-        return new ArrayList<>();
+        return this.allCountryCodes;
     }
 
     @Override
     public String translate(String country, String language) {
-        // TODO Task: complete this method using your instance variables as needed
+        String refactoredCountry = country.toLowerCase();
+        if (codeMap.containsKey(refactoredCountry)) {
+            String refactoredLanguage = language.toLowerCase();
+            if (codeMap.get(refactoredCountry).containsKey(refactoredLanguage)) {
+                return codeMap.get(refactoredCountry).get(refactoredLanguage);
+            }
+        }
         return null;
     }
 }
